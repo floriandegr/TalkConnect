@@ -5,7 +5,12 @@ const _ = require ('lodash');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const config = require('config');
+const auth = require('../middleware/auth');
 const salt = await bcrypt.genSalt(10);
+
+
+
+
 router.post('/', async (req, res) => {
   const { error } = validate(req.body);
   if (error) return res.status(400).send(error.details[0].message);
@@ -26,9 +31,24 @@ router.get('/', async(req, res) =>{
     const users = await User.find().select('-password')
     res.send(User)
 })
-router.get('/room/:id', async(req, res) =>  {
-  const users = await User.find().where()
-})
+router.get('/room/:id', auth, async (req, res) => {
+  try {
+    const room = await Room.findOne({ 
+      _id: req.params.id,
+      $or: [
+        { createdBy: req.user._id },      // ← user created the room
+        { public: true }          // ← user was added by an admin
+      ]
+    }).populate('members');
+
+    if (!room) return res.status(404).json({ message: 'Room not found or unauthorized' });
+
+    res.json({ users: room.members });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 router.get('/:id', async (req, res) => {
   const user = await User.findById(req.params.id).select('-password')
   
