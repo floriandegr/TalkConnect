@@ -1,31 +1,21 @@
 const express = require('express')
-const mongoose = require('mongoose')
-
-
-
 const app = express()
+const config = require('config');
+
+if (!config.get('jwtPrivateKey')) {
+  console.error('FATAL ERROR: jwtPrivateKey not defined.');
+  process.exit(1);
+}
+require('./db') // connects to mongodb
+
 app.use(express.json())
 
-// ─── Connect ─────────────────────────────────
-mongoose.connect('mongodb://localhost/TalkConnect')
-  .then(() => console.log('Connected to MongoDB!'))
-  .catch((err) => console.log('Connection error:', err))
-
-// ─── Models (pointing to your Compass collections) ───
-const BaseAction = mongoose.model('BaseAction',
-  new mongoose.Schema({}, { strict: false, collection: 'BaseActions' })
-)
-const result = baseaction.save()
 // ─── Routes ──────────────────────────────────
-app.get('/baseactions', async (req, res) => {
-  const actions = await BaseAction.find()
-  res.send(actions)
-})
-
-app.post('/baseactions', async (req, res) => {
-  const action = await BaseAction.create(req.body)
-  res.send(action)
-})
+app.use('/baseactions', require('./routes/baseactions'))
+app.use('/users',       require('./routes/users'))
+app.use('/api/auth',   require('.routes/auth  '));
+app.use('/rooms',       require('./routes/rooms'))
+app.use('/items',       require('./routes/items'))
 
 // ─── Start ────────────────────────────────────
 app.listen(3000, () => {
