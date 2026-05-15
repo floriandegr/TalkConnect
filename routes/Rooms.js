@@ -171,3 +171,60 @@ router.delete('/room/:id/occupant/:userId', auth, async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+// MOVE THROUGH DOOR - user moves from one room to another via a connected door
+router.post('/room/:id/move/:targetRoomId', auth, async (req, res) => {
+  try {
+    const currentRoom = await Room.findOne({
+      _id: req.params.id,
+      occupants: req.user._id  // ← user must be in the current room
+    });
+
+    if (!currentRoom) return res.status(404).json({ message: 'You are not in this room' });
+
+    // 1. Check if the target room is connected (door exists)
+    const isDoorConnected = currentRoom.connectedRooms.some(
+      roomId => roomId.toString() === req.params.targetRoomId
+    );
+
+    if (!isDoorConnected) return res.status(403).json({ message: 'No door to that room' });
+
+    // 2. Remove user from current room
+    await Room.findByIdAndUpdate(
+      req.params.id,
+      { $pull: { occupants: req.user._id } }
+    );
+
+    // 3. Add user to target room
+    const targetRoom = await Room.findByIdAndUpdate(
+      req.params.targetRoomId,
+      { $addToSet: { occupants: req.user._id } },
+      { new: true }
+    ).populate('occupants');
+
+    if (!targetRoom) return res.status(404).json({ message: 'Target room not found' });
+
+    res.json({ 
+      message: `Moved to ${targetRoom.name}`,
+      room: targetRoom 
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+// GET CURRENT ROOM - get the room the user is currently in
+router.get('/room/current', auth, async (req, res) => {
+  try {
+    const room = await Room.findOne({ 
+      occupants: req.user._id  // ← find the room where user is an occupant
+    })
+    .populate('occupants', 'name')
+    .populate('connectedRooms', 'name public');
+
+    if (!room) return res.status(404).json({ message: 'You are not in any room' });
+
+    res.json(room);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
