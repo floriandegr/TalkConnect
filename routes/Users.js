@@ -1,15 +1,16 @@
-const { User, validate} = require('../models/User');
+const { User, validate } = require('../models/User');
 const express = require('express');
 const router = express.Router();
-const _ = require ('lodash');
+const _ = require('lodash');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const config = require('config');
 const auth = require('../middleware/auth');
-const salt = await bcrypt.genSalt(10);
+const Room = require('../models/Room'); // ← was missing entirely
 
-
-
+// ❌ REMOVED: const salt = await bcrypt.genSalt(10);
+// Top-level await is not allowed in CommonJS modules
+// Moved inside the route handler instead
 
 router.post('/', async (req, res) => {
   const { error } = validate(req.body);
@@ -18,42 +19,43 @@ router.post('/', async (req, res) => {
   let user = await User.findOne({ name: req.body.name });
   if (user) return res.status(400).send('User already registered.');
 
-  user = new User({
-    ...req.body
-  });
+  user = new User({ ...req.body });
+
+  const salt = await bcrypt.genSalt(10); // ✅ moved here
   user.password = await bcrypt.hash(user.password, salt);
   await user.save();
+
   const token = user.generateAuthToken();
-res.header('x-auth-token', token).send(_.pick(user, ['_id', 'name']));
-  
+  res.header('x-auth-token', token).send(_.pick(user, ['_id', 'name']));
 });
-router.get('/', async(req, res) =>{
-    const users = await User.find().select('-password')
-    res.send(User)
-})
+
+router.get('/', async (req, res) => {
+  const users = await User.find().select('-password');
+  res.send(users); // ❌ was sending `User` (the model) instead of `users` (the result)
+});
+
 router.get('/room/:id', auth, async (req, res) => {
   try {
-    const room = await Room.findOne({ 
+    const room = await Room.findOne({
       _id: req.params.id,
       $or: [
-        { createdBy: req.user._id },      // ← user created the room
-        { public: true }          // ← user was added by an admin
+        { createdBy: req.user._id },
+        { public: true }
       ]
     }).populate('members');
 
     if (!room) return res.status(404).json({ message: 'Room not found or unauthorized' });
 
     res.json({ users: room.members });
-
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
+
 router.get('/:id', async (req, res) => {
-  const user = await User.findById(req.params.id).select('-password')
-  
-  if (!user) return res.status(404).send('User not found')
-  
-  res.send(user)
+  const user = await User.findById(req.params.id).select('-password');
+  if (!user) return res.status(404).send('User not found');
+  res.send(user);
 });
+
 module.exports = router;

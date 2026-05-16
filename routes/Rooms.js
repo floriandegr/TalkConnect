@@ -1,3 +1,6 @@
+const express = require('express');
+const router = express.Router();
+const auth = require('../middleware/auth');
 
 router.post('/room', auth, async (req, res) => {
   try {
@@ -228,3 +231,5 @@ router.get('/room/current', auth, async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+
+module.exports = router;

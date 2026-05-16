@@ -13,7 +13,8 @@ app.use(express.json())
 // ─── Routes ──────────────────────────────────
 app.use('/baseactions', require('./routes/baseactions'))
 app.use('/users',       require('./routes/users'))
-app.use('/api/auth',   require('.routes/auth  '));
+app.use('/messages', require('./routes/messages'))
+app.use('/api/auth',   require('./routes/auth'));
 app.use('/rooms',       require('./routes/rooms'))
 app.use('/items',       require('./routes/items'))
 
